@@ -7,37 +7,26 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <EditText
-        android:id="@+id/etDireccion"
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/autocomplete_fragment"
+        android:name="com.google.android.libraries.places.widget.AutocompleteSupportFragment"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="16dp"
         android:layout_marginTop="16dp"
-        android:layout_marginEnd="8dp"
-        android:hint="Ingrese una dirección"
-        android:inputType="textPostalAddress"
-        app:layout_constraintEnd_toStartOf="@+id/btnBuscar"
+        android:layout_marginEnd="16dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
-
-    <Button
-        android:id="@+id/btnBuscar"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginEnd="16dp"
-        android:text="Buscar"
-        app:layout_constraintBottom_toBottomOf="@+id/etDireccion"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/etDireccion" />
 
     <Spinner
         android:id="@+id/spinnerMapType"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        app:layout_constraintEnd_toEndOf="@+id/btnBuscar"
-        app:layout_constraintStart_toStartOf="@+id/etDireccion"
-        app:layout_constraintTop_toBottomOf="@+id/etDireccion" />
+        app:layout_constraintEnd_toEndOf="@+id/autocomplete_fragment"
+        app:layout_constraintStart_toStartOf="@+id/autocomplete_fragment"
+        app:layout_constraintTop_toBottomOf="@+id/autocomplete_fragment" />
 
     <androidx.fragment.app.FragmentContainerView
         android:id="@+id/map"
