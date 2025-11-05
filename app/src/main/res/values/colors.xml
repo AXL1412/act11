@@ -2,4 +2,15 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- Elegant Dark Theme Palette -->
+    <color name="dark_purple_primary">#2c243b</color>
+    <color name="dark_purple_variant">#5A3A8A</color>
+    <color name="accent_cyan">#00F5D4</color>
+
+    <!-- Marker Colors -->
+    <color name="marker_color_normal">#448AFF</color> <!-- Azul brillante -->
+    <color name="marker_color_satellite">#FF5252</color> <!-- Rojo intenso -->
+    <color name="marker_color_terrain">#69F0AE</color> <!-- Verde menta -->
+
 </resources>

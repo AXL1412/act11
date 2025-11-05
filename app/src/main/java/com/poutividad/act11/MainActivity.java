@@ -1,17 +1,21 @@
 package com.poutividad.act11;
 
+import android.location.Address;
+import android.location.Geocoder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Spinner;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import com.google.android.gms.common.api.Status;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.OnMapReadyCallback;
@@ -20,17 +24,17 @@ import com.google.android.gms.maps.model.BitmapDescriptorFactory;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
-import com.google.android.libraries.places.api.Places;
-import com.google.android.libraries.places.api.model.Place;
-import com.google.android.libraries.places.widget.AutocompleteSupportFragment;
-import com.google.android.libraries.places.widget.listener.PlaceSelectionListener;
 
-import java.util.Arrays;
+import java.io.IOException;
+import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity implements OnMapReadyCallback {
 
     private static final String TAG = "MainActivity";
 
+    private EditText etDireccion;
+    private Button btnBuscar;
     private Spinner spinnerMapType;
     private GoogleMap mMap;
     private Marker currentMarker;
@@ -40,50 +44,77 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        etDireccion = findViewById(R.id.etDireccion);
+        btnBuscar = findViewById(R.id.btnBuscar);
         spinnerMapType = findViewById(R.id.spinnerMapType);
 
-        // **IMPORTANTE**: Reemplaza "YOUR_API_KEY" con tu clave de API real
-        if (!Places.isInitialized()) {
-            Places.initialize(getApplicationContext(), "YOUR_API_KEY");
-        }
+        // --- CRASH-PROOF LOGIC: Disable all UI until the map is fully loaded ---
+        etDireccion.setEnabled(false);
+        btnBuscar.setEnabled(false);
+        spinnerMapType.setEnabled(false);
 
-        // Initialize the map
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.map);
         if (mapFragment != null) {
             mapFragment.getMapAsync(this);
+        } else {
+            Toast.makeText(this, "Error fatal: No se pudo cargar el fragmento del mapa.", Toast.LENGTH_LONG).show();
         }
-
-        setupAutocomplete();
-        setupSpinner();
     }
 
     @Override
     public void onMapReady(@NonNull GoogleMap googleMap) {
         mMap = googleMap;
-        LatLng defaultLocation = new LatLng(19.4326, -99.1332); // Ciudad de México
+        Log.d(TAG, "Mapa listo y cargado.");
+
+        // --- UI is enabled here, ONLY after the map is guaranteed to be ready ---
+        etDireccion.setEnabled(true);
+        btnBuscar.setEnabled(true);
+        spinnerMapType.setEnabled(true);
+
+        setupSearchButton();
+        setupSpinner();
+
+        // Set a default location (e.g., Mexico City)
+        LatLng defaultLocation = new LatLng(19.4326, -99.1332);
         mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(defaultLocation, 10));
     }
 
-    private void setupAutocomplete() {
-        AutocompleteSupportFragment autocompleteFragment = (AutocompleteSupportFragment)
-                getSupportFragmentManager().findFragmentById(R.id.autocomplete_fragment);
+    private void setupSearchButton() {
+        btnBuscar.setOnClickListener(v -> {
+            String addressString = etDireccion.getText().toString();
+            hideKeyboard();
+            if (!addressString.isEmpty()) {
+                searchAddress(addressString);
+            } else {
+                Toast.makeText(this, "Por favor, ingrese una dirección", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
 
-        if (autocompleteFragment != null) {
-            autocompleteFragment.setPlaceFields(Arrays.asList(Place.Field.ID, Place.Field.NAME, Place.Field.LAT_LNG, Place.Field.ADDRESS));
-            autocompleteFragment.setHint("Ingrese una dirección");
-            autocompleteFragment.setOnPlaceSelectedListener(new PlaceSelectionListener() {
-                @Override
-                public void onPlaceSelected(@NonNull Place place) {
-                    Log.i(TAG, "Place: " + place.getName() + ", " + place.getAddress());
-                    addMarker(place.getLatLng(), place.getName());
+    private void searchAddress(String addressString) {
+        Log.d(TAG, "Buscando dirección: " + addressString);
+        // Use Geocoder for a simple and stable search
+        Geocoder geocoder = new Geocoder(this, Locale.getDefault());
+        try {
+            List<Address> addresses = geocoder.getFromLocationName(addressString, 1);
+            if (addresses != null && !addresses.isEmpty()) {
+                Address address = addresses.get(0);
+                LatLng location = new LatLng(address.getLatitude(), address.getLongitude());
+
+                if (currentMarker != null) {
+                    currentMarker.remove();
                 }
 
-                @Override
-                public void onError(@NonNull Status status) {
-                    Log.e(TAG, "An error occurred: " + status);
-                    Toast.makeText(MainActivity.this, "Error en la búsqueda de lugares", Toast.LENGTH_SHORT).show();
-                }
-            });
+                currentMarker = mMap.addMarker(new MarkerOptions().position(location).title(addressString));
+                updateMarkerColor(); // Set color for the new marker
+
+                mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15));
+            } else {
+                Toast.makeText(this, "Dirección no encontrada", Toast.LENGTH_SHORT).show();
+            }
+        } catch (IOException e) {
+            Log.e(TAG, "Error al buscar la dirección", e);
+            Toast.makeText(this, "Error de red o geocodificación. Verifique su conexión o la API Key.", Toast.LENGTH_LONG).show();
         }
     }
 
@@ -96,7 +127,8 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         spinnerMapType.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
-                if (mMap == null) return;
+                if (mMap == null) return; // This check is now redundant, but safe
+
                 String type = parent.getItemAtPosition(position).toString();
                 switch (type) {
                     case "Satélite":
@@ -117,25 +149,24 @@ public class MainActivity extends AppCompatActivity implements OnMapReadyCallbac
         });
     }
 
-    private void addMarker(LatLng location, String title) {
-        if (mMap == null) return;
-        if (currentMarker != null) {
-            currentMarker.remove();
+    private void updateMarkerColor() {
+        if (currentMarker == null || mMap == null) return;
+
+        float color = BitmapDescriptorFactory.HUE_AZURE; // Elegant blue for Normal map
+        if (mMap.getMapType() == GoogleMap.MAP_TYPE_SATELLITE) {
+            color = BitmapDescriptorFactory.HUE_CYAN; // Accent color for Satellite
+        } else if (mMap.getMapType() == GoogleMap.MAP_TYPE_TERRAIN) {
+            color = BitmapDescriptorFactory.HUE_VIOLET; // Primary theme color for Terrain
         }
-        currentMarker = mMap.addMarker(new MarkerOptions().position(location).title(title));
-        updateMarkerColor();
-        mMap.animateCamera(CameraUpdateFactory.newLatLngZoom(location, 15));
+
+        currentMarker.setIcon(BitmapDescriptorFactory.defaultMarker(color));
     }
 
-    private void updateMarkerColor() {
-        if (currentMarker == null) return;
-
-        float color = BitmapDescriptorFactory.HUE_BLUE;
-        if (mMap.getMapType() == GoogleMap.MAP_TYPE_SATELLITE) {
-            color = BitmapDescriptorFactory.HUE_RED;
-        } else if (mMap.getMapType() == GoogleMap.MAP_TYPE_TERRAIN) {
-            color = BitmapDescriptorFactory.HUE_GREEN;
+    private void hideKeyboard() {
+        View view = this.getCurrentFocus();
+        if (view != null) {
+            InputMethodManager imm = (InputMethodManager) getSystemService(INPUT_METHOD_SERVICE);
+            imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
         }
-        currentMarker.setIcon(BitmapDescriptorFactory.defaultMarker(color));
     }
 }
